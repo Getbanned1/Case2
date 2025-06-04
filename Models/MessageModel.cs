@@ -14,4 +14,5 @@ namespace Case2
     }
 
     public record MessageDto(int Id, int ChatId, int SenderId, string Text, DateTime SentAt, bool IsRead);
+    public record SendMessageRequest(int ChatId, int SenderId, string Text);
 }

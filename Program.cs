@@ -26,6 +26,7 @@ builder.Services.Configure<IpRateLimitOptions>(options =>
         }
     };
 });
+builder.Services.AddSwaggerGen();
 
 // ���������� ������� rate limiting � ��������� ������ � ������
 builder.Services.AddInMemoryRateLimiting();
@@ -37,7 +38,8 @@ app.UseIpRateLimiting();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseRouting();
-
+app.UseSwagger();
+app.UseSwaggerUI();
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();  // Подключаем все контроллеры

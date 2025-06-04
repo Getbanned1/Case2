@@ -11,5 +11,6 @@ namespace Case2
         public ICollection<Message> Messages { get; set; } = new List<Message>();
 }
     }
+    public record CreateChatRequest(string Name, bool IsGroup);
     public record ChatDto(int Id, string Name, bool IsGroup);
        
