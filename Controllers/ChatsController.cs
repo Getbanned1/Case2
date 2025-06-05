@@ -43,12 +43,11 @@ public class ChatsController : ControllerBase
         await _db.SaveChangesAsync();
 
         // Здесь нужно получить реальный userId создателя, например из токена
-        int creatorUserId = 1; // Заглушка
 
-        _db.UserChats.Add(new UserChat { ChatId = chat.Id, UserId = creatorUserId });
+        _db.UserChats.Add(new UserChat { ChatId = chat.Id, UserId = request.creatorUserId });
         await _db.SaveChangesAsync();
 
         var chatDto = new ChatDto(chat.Id, chat.Name, chat.IsGroup);
-        return CreatedAtAction(nameof(GetChats), new { userId = creatorUserId }, chatDto);
+        return CreatedAtAction(nameof(GetChats), new { userId = request.creatorUserId }, chatDto);
     }
 }
