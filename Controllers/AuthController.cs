@@ -38,8 +38,8 @@ public class AuthController : ControllerBase
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-
-        return Ok(new { message = "Пользователь зарегистрирован" });
+        var token = GenerateJwtToken(user);
+        return Ok(new { token, userId = user.Id, username = user.Username });
     }
 
     [HttpPost("login")]

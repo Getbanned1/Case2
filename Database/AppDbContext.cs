@@ -72,7 +72,9 @@ namespace Case2
             // Таблица user_chats (многие-ко-многим)
             modelBuilder.Entity<UserChat>(entity =>
             {
+
                 entity.ToTable("user_chats");
+                
                 entity.HasKey(uc => new { uc.UserId, uc.ChatId });
 
                 entity.Property(uc => uc.UserId).HasColumnName("user_id");
