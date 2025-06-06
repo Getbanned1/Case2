@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Case2;
+using Microsoft.AspNetCore.Authorization;
+[Authorize]
 [ApiController]
 [Route("api/messages")]
 public class MessagesController : ControllerBase

@@ -31,7 +31,8 @@ public class AuthController : ControllerBase
         var user = new User
         {
             Username = request.Username,
-            PasswordHash = PasswordCrypter.HashPassword(request.Password),            IsOnline = false,
+            PasswordHash = PasswordCrypter.HashPassword(request.Password),
+            IsOnline = false,
             LastOnline = DateTime.UtcNow
         };
 
@@ -55,14 +56,6 @@ public class AuthController : ControllerBase
         var token = GenerateJwtToken(user);
 
         return Ok(new { token, userId = user.Id, username = user.Username });
-    }
-
-    private string HashPassword(string password)
-    {
-        using var sha = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(password);
-        var hash = sha.ComputeHash(bytes);
-        return Convert.ToBase64String(hash);
     }
 
     private string GenerateJwtToken(User user)

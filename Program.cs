@@ -64,7 +64,7 @@ app.UseSwaggerUI();
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();  // Подключаем все контроллеры
-    endpoints.MapHub<ChatHub>("/chat");   
+    endpoints.MapHub<ChatHub>("/chat").RequireAuthorization();   
 });
 
 app.UseHttpsRedirection();
