@@ -13,7 +13,7 @@ namespace Case2
         public User Sender { get; set; } = null!;
     }
 
-    public record MessageDto(int Id, int ChatId, int SenderId, string SenderAvatarUrl, string Text, DateTime SentAt, bool IsRead);
+    public record MessageDto(int Id, int ChatId, int SenderId, string SenderAvatarUrl, string Text, DateTime SentAt, bool IsRead,string Sender);
 
     public record SendMessageRequest(int ChatId, int SenderId, string Text);
 }

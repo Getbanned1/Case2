@@ -112,7 +112,8 @@ namespace Case2
                  m.Sender.AvatarUrl ?? string.Empty,
                  m.Text,
                  m.SentAt,
-                 m.IsRead
+                 m.IsRead,
+                 m.Sender.Username
              ))
              .ToListAsync();
             return messages;
@@ -157,7 +158,8 @@ namespace Case2
                     SenderAvatarUrl: avatarUrl,
                     Text: messageEntity.Text,
                     SentAt: messageEntity.SentAt,
-                    IsRead: messageEntity.IsRead
+                    IsRead: messageEntity.IsRead,
+                    Sender: user.Username
                 );
 
 

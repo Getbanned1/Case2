@@ -33,7 +33,9 @@ public class MessagesController : ControllerBase
             m.Sender.AvatarUrl ?? string.Empty, // получаем аватар из пользователя
             m.Text,
             m.SentAt,
-            m.IsRead))
+            m.IsRead,
+            m.Sender.Username ?? string.Empty // получаем имя из пользователя
+            ))
         .ToListAsync();
 
     return Ok(messages);
