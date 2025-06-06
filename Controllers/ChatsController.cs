@@ -23,20 +23,28 @@ public class ChatsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ChatDto>>> GetChats([FromQuery] int userId)
-    {
-        var chatIds = await _db.UserChats
-            .Where(uc => uc.UserId == userId)
-            .Select(uc => uc.ChatId)
-            .ToListAsync();
+[HttpGet]
+public async Task<ActionResult<List<ChatDto>>> GetChats([FromQuery] int userId)
+{
+    var chatIds = await _db.UserChats
+        .Where(uc => uc.UserId == userId)
+        .Select(uc => uc.ChatId)
+        .ToListAsync();
+    var user = await _db.Users.FindAsync(userId);
 
-        var chats = await _db.Chats
-            .Where(c => chatIds.Contains(c.Id))
-            .Select(c => new ChatDto(c.Id, c.Name, c.IsGroup))
-            .ToListAsync();
+    var chats = await _db.Chats
+        .Where(c => chatIds.Contains(c.Id))
+        .Select(c => new ChatDto(
+            c.Id,
+            c.Name,
+            c.IsGroup,
+            c.AvatarUrl ?? user.AvatarUrl // предполагается, что в сущности Chats есть поле AvatarUrl
+        ))
+        .ToListAsync();
 
-        return Ok(chats);
-    }
+    return Ok(chats);
+}
+
 
     [HttpPost("createPrivateChat")]
     public async Task<IActionResult> CreatePrivateChat([FromBody] CreateChatRequest request)
@@ -63,7 +71,7 @@ public class ChatsController : ControllerBase
         await _db.SaveChangesAsync();
         try
         {
-            await _chatHubContext.Clients.Users(userId1.ToString(), userId2.ToString()).SendAsync("CreatePrivateChat", new ChatDto(chat.Id, chat.Name, chat.IsGroup));
+            await _chatHubContext.Clients.Users(userId1.ToString(), userId2.ToString()).SendAsync("CreatePrivateChat", new ChatDto(chat.Id, chat.Name, chat.IsGroup,user2.AvatarUrl));
         }
         catch (Exception ex)
         {
@@ -73,7 +81,7 @@ public class ChatsController : ControllerBase
         // Optionally, you can emit a notification or perform additional actions here
 
         // Return the created chat details
-        return Ok(new ChatDto(chat.Id, chat.Name, chat.IsGroup));
+        return Ok(new ChatDto(chat.Id, chat.Name, chat.IsGroup, user2.AvatarUrl));
     }
 }
 

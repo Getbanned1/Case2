@@ -33,32 +33,33 @@ public class UsersController : ControllerBase
             return StatusCode(500, new { message = "Ошибка сервера", details = ex.Message });
         }
     }
-        [HttpGet("by-username")]
-        public async Task<ActionResult<int>> GetUserIdByUsernameAsync([FromQuery] string username)
+    [HttpGet("by-username")]
+    public async Task<ActionResult<int>> GetUserIdByUsernameAsync([FromQuery] string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
         {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                return BadRequest(new { message = "Имя пользователя не может быть пустым." });
-            }
-
-            try
-            {
-                // Проверяем, есть ли пользователь в локальной базе данных
-                var user = await _db.Users
-                    .FirstOrDefaultAsync(u => u.Username == username);
-
-                if (user != null)
-                {
-                    return Ok(user.Id);
-                }
-
-                // Если пользователь не найден
-                return NotFound(new { message = "Пользователь не найден." });
-            }
-            catch(Exception ex)
-            {
-                return StatusCode(500, new { message = "Ошибка сервера", details = ex.Message });
-            }
+            return BadRequest(new { message = "Имя пользователя не может быть пустым." });
         }
+
+        try
+        {
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+
+            if (user != null)
+            {
+                return Ok(user.Id);
+            }
+
+            return NotFound(new { message = "Пользователь не найден." });
+        }
+        catch(Exception ex)
+        {
+            // Логируем ошибку, например, через ILogger (если есть)
+            // _logger.LogError(ex, "Ошибка при поиске пользователя по имени {Username}", username);
+
+            return StatusCode(500, new { message = "Ошибка сервера", details = ex.ToString() });
+        }
+    }
+
 
 }

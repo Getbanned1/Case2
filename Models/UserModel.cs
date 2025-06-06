@@ -7,7 +7,7 @@ namespace Case2
         public int Id { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
-        public int AvatarUrl { get; set; }
+        public string? AvatarUrl { get; set; }
         public DateTime LastOnline { get; set; }
         public bool IsOnline { get; set; }
         public ICollection<UserChat> UserChats { get; set; } = new List<UserChat>();

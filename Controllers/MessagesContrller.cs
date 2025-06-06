@@ -22,14 +22,23 @@ public class MessagesController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<MessageDto>>> GetMessages([FromQuery] int chatId)
-    {
-        var messages = await _db.Messages
-            .Where(m => m.ChatId == chatId)
-            .Select(m => new MessageDto(m.Id, m.ChatId, m.SenderId, m.Text, m.SentAt, m.IsRead))
-            .ToListAsync();
+{
+    var messages = await _db.Messages
+        .Where(m => m.ChatId == chatId)
+        .Include(m => m.Sender) // загружаем пользователя-отправителя
+        .Select(m => new MessageDto(
+            m.Id,
+            m.ChatId,
+            m.SenderId,
+            m.Sender.AvatarUrl ?? string.Empty, // получаем аватар из пользователя
+            m.Text,
+            m.SentAt,
+            m.IsRead))
+        .ToListAsync();
 
-        return Ok(messages);
-    }
+    return Ok(messages);
+}
+
 
     [HttpPost]
     public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)

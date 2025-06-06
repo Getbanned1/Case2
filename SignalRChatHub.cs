@@ -78,7 +78,8 @@ namespace Case2
                     {
                         ChatId = chat.Id,
                         Name = chat.Name,
-                        IsGroup = chat.IsGroup
+                        IsGroup = chat.IsGroup,
+                        AvatarUrl = user2.AvatarUrl ?? string.Empty
                     });
 
                 // Опционально: можно отправить первое системное сообщение или другую информацию
@@ -100,21 +101,20 @@ namespace Case2
 
             await Groups.AddToGroupAsync(Context.ConnectionId, chatId.ToString());
 
-           var messages = await _db.Messages
-            .Where(m => m.ChatId == chatId)
-            .Include(m => m.Sender)
-            .OrderBy(m => m.SentAt)
-            .Select(m => new MessageDto(
-                m.Id,
-                m.ChatId,
-                m.SenderId,
-                m.Text,
-                m.SentAt,
-                m.IsRead
-            ))
-            .ToListAsync();
-
-
+            var messages = await _db.Messages
+             .Where(m => m.ChatId == chatId)
+             .Include(m => m.Sender)
+             .OrderBy(m => m.SentAt)
+             .Select(m => new MessageDto(
+                 m.Id,
+                 m.ChatId,
+                 m.SenderId,
+                 m.Sender.AvatarUrl ?? string.Empty,
+                 m.Text,
+                 m.SentAt,
+                 m.IsRead
+             ))
+             .ToListAsync();
             return messages;
         }
 
@@ -148,12 +148,13 @@ namespace Case2
 
                 // Загружаем отправителя для возврата клиенту (если нужно)
                 await _db.Entry(messageEntity).Reference(m => m.Sender).LoadAsync();
-
+                var avatarUrl = user.AvatarUrl ?? string.Empty;
                 // Формируем DTO для отправки клиентам
                 var messageDto = new MessageDto(
                     Id: messageEntity.Id,
                     ChatId: messageEntity.ChatId,
                     SenderId: messageEntity.SenderId,
+                    SenderAvatarUrl: avatarUrl,
                     Text: messageEntity.Text,
                     SentAt: messageEntity.SentAt,
                     IsRead: messageEntity.IsRead
