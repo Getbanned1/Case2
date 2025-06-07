@@ -175,7 +175,7 @@ namespace Case2
                     ChatId = chatId,
                     SenderId = user.Id,
                     Text = text,
-                    SentAt = DateTime.UtcNow,
+                    SentAt = DateTime.Now,
                     IsRead = false
                 };
                 _db.Messages.Add(messageEntity);
