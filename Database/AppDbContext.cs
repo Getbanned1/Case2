@@ -31,9 +31,9 @@ namespace Case2
                 entity.Property(u => u.Username).HasColumnName("username").IsRequired().HasMaxLength(100);
                 entity.HasIndex(u => u.Username).IsUnique();
                 entity.Property(u => u.PasswordHash).HasColumnName("password_hash").IsRequired().HasMaxLength(255);
-                entity.Property(u => u.AvatarUrl).HasColumnName("avatar_url");
                 entity.Property(u => u.LastOnline).HasColumnName("last_online");
                 entity.Property(u => u.IsOnline).HasColumnName("is_online").IsRequired();
+                entity.Property(u => u.AvatarUrl).HasColumnName("avatar_url");
             });
 
             // Таблица chats
@@ -44,6 +44,7 @@ namespace Case2
                 entity.Property(c => c.Id).HasColumnName("id");
                 entity.Property(c => c.Name).HasColumnName("name").IsRequired();
                 entity.Property(c => c.IsGroup).HasColumnName("is_group").IsRequired();
+                entity.Property(c => c.AvatarUrl).HasColumnName("avatar_url");
             });
 
             // Таблица messages
@@ -72,7 +73,9 @@ namespace Case2
             // Таблица user_chats (многие-ко-многим)
             modelBuilder.Entity<UserChat>(entity =>
             {
+
                 entity.ToTable("user_chats");
+                
                 entity.HasKey(uc => new { uc.UserId, uc.ChatId });
 
                 entity.Property(uc => uc.UserId).HasColumnName("user_id");

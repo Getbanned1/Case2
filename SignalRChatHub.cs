@@ -14,30 +14,85 @@ namespace Case2
         {
             _db = db;
         }
-        public async Task SendMessageViaSignalRAsync(int chatId, string text)
+        public override async Task OnConnectedAsync()
         {
-            if (string.IsNullOrEmpty(text))
-                throw new HubException("Текст сообщения не может быть пустым.");
-
-            // Создайте и сохраните сообщение в базе, если нужно
-            // Отправьте сообщение всем клиентам в группе чата
-            await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", chatId, text);
+            var userIdClaim = Context.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+            if (userIdClaim != null)
+            {
+                var userGroupName = $"User_{userIdClaim.Value}";
+                await Groups.AddToGroupAsync(Context.ConnectionId, userGroupName);
+            }
+            await base.OnConnectedAsync();
         }
 
-        public async Task<Chat> CreatePrivateChat(int userId1, int userId2)
+        public async Task CreatePrivateChat(int userId1, int userId2, string chatName)
+    {
+        using (var transaction = await _db.Database.BeginTransactionAsync())
         {
-            var chat = new Chat { Name = $"Private_{userId1}_{userId2}", IsGroup = false };
-            _db.Chats.Add(chat);
-            await _db.SaveChangesAsync();
+            try
+            {
+                var user1 = await _db.Users.FindAsync(userId1);
+                var user2 = await _db.Users.FindAsync(userId2);
 
-            _db.UserChats.AddRange(
-                new UserChat { UserId = userId1, ChatId = chat.Id },
-                new UserChat { UserId = userId2, ChatId = chat.Id }
-            );
-            await _db.SaveChangesAsync();
+                if (user1 == null || user2 == null)
+                {
+                    throw new HubException("One or both users do not exist.");
+                }
 
-            return chat;
+                var existingChat = await _db.Chats
+                    .Where(c => !c.IsGroup)
+                    .Where(c => c.UserChats.Any(uc => uc.UserId == userId1))
+                    .Where(c => c.UserChats.Any(uc => uc.UserId == userId2))
+                    .FirstOrDefaultAsync();
+
+                if (existingChat != null)
+                {
+                    throw new HubException("Chat between these users already exists.");
+                }
+
+                var chat = new Chat
+                {
+                    Name = chatName,
+                    IsGroup = false,
+                };
+
+                _db.Chats.Add(chat);
+                await _db.SaveChangesAsync();
+
+                var userChat1 = new UserChat { UserId = userId1, ChatId = chat.Id };
+                var userChat2 = new UserChat { UserId = userId2, ChatId = chat.Id };
+
+                _db.UserChats.AddRange(userChat1, userChat2);
+                await _db.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                // Добавляем подключения пользователей в группу SignalR
+                var userGroupName1 = $"User_{userId1}";
+                var userGroupName2 = $"User_{userId2}";
+
+                // Предполагается, что в Hub при подключении пользователей вы добавляете их в группы User_{userId}
+                // Теперь отправляем сообщение о создании нового чата этим пользователям
+                await Clients.Groups(userGroupName1, userGroupName2)
+                    .SendAsync("NewChatCreated", new
+                    {
+                        ChatId = chat.Id,
+                        Name = chat.Name,
+                        IsGroup = chat.IsGroup,
+                        AvatarUrl = user2.AvatarUrl ?? string.Empty
+                    });
+
+                // Опционально: можно отправить первое системное сообщение или другую информацию
+
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
+    }
+
         public async Task<List<MessageDto>> JoinRoom(int chatId)
         {
             var chat = await _db.Chats.FindAsync(chatId);
@@ -46,21 +101,21 @@ namespace Case2
 
             await Groups.AddToGroupAsync(Context.ConnectionId, chatId.ToString());
 
-           var messages = await _db.Messages
-            .Where(m => m.ChatId == chatId)
-            .Include(m => m.Sender)
-            .OrderBy(m => m.SentAt)
-            .Select(m => new MessageDto(
-                m.Id,
-                m.ChatId,
-                m.SenderId,
-                m.Text,
-                m.SentAt,
-                m.IsRead
-            ))
-            .ToListAsync();
-
-
+            var messages = await _db.Messages
+             .Where(m => m.ChatId == chatId)
+             .Include(m => m.Sender)
+             .OrderBy(m => m.SentAt)
+             .Select(m => new MessageDto(
+                 m.Id,
+                 m.ChatId,
+                 m.SenderId,
+                 m.Sender.AvatarUrl ?? string.Empty,
+                 m.Text,
+                 m.SentAt,
+                 m.IsRead,
+                 m.Sender.Username
+             ))
+             .ToListAsync();
             return messages;
         }
 
@@ -70,50 +125,52 @@ namespace Case2
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, chatId.ToString());
         }
         public async Task SendMessage(int chatId, string text)
-{
-    try
-    {
-        // Получаем имя пользователя из Claims
-        var username = Context.User?.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Name)?.Value;
-
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
-        if (user == null)
-            throw new HubException("Пользователь не найден.");
-
-        // Создаём и сохраняем сущность сообщения
-        var messageEntity = new Message
         {
-            ChatId = chatId,
-            SenderId = user.Id,
-            Text = text,
-            SentAt = DateTime.UtcNow,
-            IsRead = false
-        };
-        _db.Messages.Add(messageEntity);
-        await _db.SaveChangesAsync();
+            try
+            {
+                // Получаем имя пользователя из Claims
+                var username = Context.User?.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Name)?.Value;
 
-        // Загружаем отправителя для возврата клиенту (если нужно)
-        await _db.Entry(messageEntity).Reference(m => m.Sender).LoadAsync();
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (user == null)
+                    throw new HubException("Пользователь не найден.");
 
-        // Формируем DTO для отправки клиентам
-        var messageDto = new MessageDto(
-            Id: messageEntity.Id,
-            ChatId: messageEntity.ChatId,
-            SenderId: messageEntity.SenderId,
-            Text: messageEntity.Text,
-            SentAt: messageEntity.SentAt,
-            IsRead: messageEntity.IsRead
-        );
+                // Создаём и сохраняем сущность сообщения
+                var messageEntity = new Message
+                {
+                    ChatId = chatId,
+                    SenderId = user.Id,
+                    Text = text,
+                    SentAt = DateTime.UtcNow,
+                    IsRead = false
+                };
+                _db.Messages.Add(messageEntity);
+                await _db.SaveChangesAsync();
+
+                // Загружаем отправителя для возврата клиенту (если нужно)
+                await _db.Entry(messageEntity).Reference(m => m.Sender).LoadAsync();
+                var avatarUrl = user.AvatarUrl ?? string.Empty;
+                // Формируем DTO для отправки клиентам
+                var messageDto = new MessageDto(
+                    Id: messageEntity.Id,
+                    ChatId: messageEntity.ChatId,
+                    SenderId: messageEntity.SenderId,
+                    SenderAvatarUrl: avatarUrl,
+                    Text: messageEntity.Text,
+                    SentAt: messageEntity.SentAt,
+                    IsRead: messageEntity.IsRead,
+                    Sender: user.Username
+                );
 
 
-        // Отправляем DTO всем участникам группы
-        await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", messageDto);
-    }
-    catch (Exception ex)
-    {
-        throw new HubException($"Ошибка при отправке сообщения: {ex.Message}");
-    }
-}
+                // Отправляем DTO всем участникам группы
+                await Clients.Group(chatId.ToString()).SendAsync("ReceiveMessage", messageDto);
+            }
+            catch (Exception ex)
+            {
+                throw new HubException($"Ошибка при отправке сообщения: {ex.Message}");
+            }
+        }
 
     }
 }

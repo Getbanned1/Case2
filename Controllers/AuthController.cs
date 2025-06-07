@@ -19,19 +19,37 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
-    public record RegisterRequest(string Username, string Password);
+    public record RegisterRequest(string Username, string Password, IFormFile Avatar);
     public record LoginRequest(string Username, string Password);
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromForm] RegisterRequest request)
     {
         if (await _db.Users.AnyAsync(u => u.Username == request.Username))
             return BadRequest(new { message = "Пользователь уже существует" });
+
+        string avatarFileName = null;
+
+        if (request.Avatar != null && request.Avatar.Length > 0)
+        {
+            // Генерируем уникальное имя файла
+            avatarFileName = Guid.NewGuid() + Path.GetExtension(request.Avatar.FileName);
+            var filePath = Path.Combine("wwwroot", "avatars", avatarFileName);
+
+            // Создаем папку, если не существует
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await request.Avatar.CopyToAsync(stream);
+            }
+        }
 
         var user = new User
         {
             Username = request.Username,
             PasswordHash = PasswordCrypter.HashPassword(request.Password),
+            AvatarUrl = avatarFileName != null ? $"https://localhost:7000/avatars/{avatarFileName}" : "https://localhost:7000/avatars/default.jpg",
             IsOnline = false,
             LastOnline = DateTime.UtcNow
         };
@@ -39,8 +57,10 @@ public class AuthController : ControllerBase
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Пользователь зарегистрирован" });
+        var token = GenerateJwtToken(user);
+        return Ok(new { token, userId = user.Id, username = user.Username, avatarUrl = user.AvatarUrl });
     }
+
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -55,7 +75,7 @@ public class AuthController : ControllerBase
 
         var token = GenerateJwtToken(user);
 
-        return Ok(new { token, userId = user.Id, username = user.Username });
+        return Ok(new { token, userId = user.Id, username = user.Username,avatarUrl = user.AvatarUrl });
     }
 
     private string GenerateJwtToken(User user)
