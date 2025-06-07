@@ -14,6 +14,7 @@ namespace Case2
         {
             _db = db;
         }
+        
         public override async Task OnConnectedAsync()
         {
             var userIdClaim = Context.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
@@ -25,7 +26,29 @@ namespace Case2
             await base.OnConnectedAsync();
         }
 
-        public async Task CreatePrivateChat(int userId1, int userId2, string chatName)
+        // Метод для обновления статуса конкретного пользователя у его собеседников
+        public async Task UpdateUserOnlineStatus(int userId, bool isOnline)
+        {
+            // Получить список чат-идентификаторов, в которых участвует пользователь
+            var chatIds = await _db.UserChats
+                .Where(uc => uc.UserId == userId)
+                .Select(uc => uc.ChatId)
+                .ToListAsync();
+
+            // Получить всех пользователей, которые состоят в тех же чатах, кроме самого пользователя
+            var otherUserIds = await _db.UserChats
+                .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != userId)
+                .Select(uc => uc.UserId)
+                .Distinct().ToListAsync();
+
+            // Отправить обновление онлайн-статуса этим пользователям
+            foreach (var otherUserId in otherUserIds)
+            {
+                await Clients.User(otherUserId.ToString()).SendAsync("ReceiveUserOnlineStatus", userId, isOnline);
+            }
+        }
+    
+        public async Task CreatePrivateChat(int userId1, int userId2,string Username, string chatName)
     {
         using (var transaction = await _db.Database.BeginTransactionAsync())
         {
@@ -52,7 +75,7 @@ namespace Case2
 
                 var chat = new Chat
                 {
-                    Name = chatName,
+                    Name = chatName ,
                     IsGroup = false,
                 };
 

@@ -66,17 +66,25 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-         if (user == null || !PasswordCrypter.VerifyPassword(request.Password, user.PasswordHash))
+        if (user == null || !PasswordCrypter.VerifyPassword(request.Password, user.PasswordHash))
             return Unauthorized(new { message = "Неверный логин или пароль" });
 
-        user.IsOnline = true;
-        user.LastOnline = DateTime.UtcNow;
+        user.IsOnline = true;               // Обновляем статус онлайн
+        user.LastOnline = DateTime.UtcNow;  // Обновляем время последнего входа
         await _db.SaveChangesAsync();
 
         var token = GenerateJwtToken(user);
 
-        return Ok(new { token, userId = user.Id, username = user.Username,avatarUrl = user.AvatarUrl,isOnline = user.IsOnline });
+        return Ok(new 
+        { 
+            token, 
+            userId = user.Id, 
+            username = user.Username, 
+            avatarUrl = user.AvatarUrl, 
+            isOnline = user.IsOnline 
+        });
     }
+
 
     private string GenerateJwtToken(User user)
     {
