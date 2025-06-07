@@ -50,7 +50,7 @@ public class AuthController : ControllerBase
             Username = request.Username,
             PasswordHash = PasswordCrypter.HashPassword(request.Password),
             AvatarUrl = avatarFileName != null ? $"https://localhost:7000/avatars/{avatarFileName}" : "https://localhost:7000/avatars/default.jpg",
-            IsOnline = false,
+            IsOnline = true,
             LastOnline = DateTime.UtcNow
         };
 
@@ -75,7 +75,7 @@ public class AuthController : ControllerBase
 
         var token = GenerateJwtToken(user);
 
-        return Ok(new { token, userId = user.Id, username = user.Username,avatarUrl = user.AvatarUrl });
+        return Ok(new { token, userId = user.Id, username = user.Username,avatarUrl = user.AvatarUrl,isOnline = user.IsOnline });
     }
 
     private string GenerateJwtToken(User user)

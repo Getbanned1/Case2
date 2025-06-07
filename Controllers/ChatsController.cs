@@ -57,7 +57,6 @@ public class ChatsController : ControllerBase
     [HttpPost("createPrivateChat")]
     public async Task<IActionResult> CreatePrivateChat([FromBody] CreateChatRequest request)
     {
-        // Validate the request
         if (request.ParticipantUserIds == null || request.ParticipantUserIds.Count != 1)
         {
             return BadRequest("Exactly one participant user ID must be provided for a private chat.");
@@ -66,7 +65,6 @@ public class ChatsController : ControllerBase
         int userId1 = request.creatorUserId;
         int userId2 = request.ParticipantUserIds.First();
 
-        // Check if both users exist
         var user1 = await _db.Users.FindAsync(userId1);
         var user2 = await _db.Users.FindAsync(userId2);
 
@@ -85,13 +83,7 @@ public class ChatsController : ControllerBase
         {
             return StatusCode(500, $"Error creating chat: {ex.Message}");
         }
-
-        // Optionally, you can emit a notification or perform additional actions here
-
-        // Return the created chat details
         return Ok(new ChatDto(chat.Id, chat.Name, chat.IsGroup, user2.AvatarUrl));
     }
 }
-
-// Класс запроса
 
