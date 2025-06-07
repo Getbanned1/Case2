@@ -6,15 +6,18 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Case2;
+using Microsoft.AspNetCore.SignalR;
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _configuration;
-
-    public AuthController(AppDbContext db, IConfiguration configuration)
+    private readonly IHubContext<ChatHub> _hubContext;
+    public AuthController(IHubContext<ChatHub> hubContext, AppDbContext db, IConfiguration configuration)
     {
+        
+        _hubContext = hubContext;
         _db = db;
         _configuration = configuration;
     }
@@ -62,16 +65,35 @@ public class AuthController : ControllerBase
     }
 
 
-    [HttpPost("login")]
+        [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
         if (user == null || !PasswordCrypter.VerifyPassword(request.Password, user.PasswordHash))
             return Unauthorized(new { message = "Неверный логин или пароль" });
 
-        user.IsOnline = true;               // Обновляем статус онлайн
-        user.LastOnline = DateTime.UtcNow;  // Обновляем время последнего входа
+        user.IsOnline = true;
+        user.LastOnline = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Получаем список собеседников пользователя
+        var chatIds = await _db.UserChats
+            .Where(uc => uc.UserId == user.Id)
+            .Select(uc => uc.ChatId)
+            .ToListAsync();
+
+        var otherUserIds = await _db.UserChats
+            .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != user.Id)
+            .Select(uc => uc.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        // Отправляем уведомление собеседникам через SignalR
+        foreach (var otherUserId in otherUserIds)
+        {
+            await _hubContext.Clients.User(otherUserId.ToString())
+                .SendAsync("ReceiveUserOnlineStatus", user.Id, true);
+        }
 
         var token = GenerateJwtToken(user);
 

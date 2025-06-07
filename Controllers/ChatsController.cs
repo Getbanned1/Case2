@@ -32,7 +32,7 @@ public class ChatsController : ControllerBase
 
         var chats = await _db.Chats
             .Where(c => chatIds.Contains(c.Id))
-            .Select(c => new
+            .Select(c => new 
             {
                 c.Id,
                 Name = c.IsGroup
