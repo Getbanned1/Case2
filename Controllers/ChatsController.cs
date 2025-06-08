@@ -23,27 +23,35 @@ public class ChatsController : ControllerBase
     }
 
     [HttpGet]
-[HttpGet]
-public async Task<ActionResult<List<ChatDto>>> GetChats([FromQuery] int userId)
-{
-    var chatIds = await _db.UserChats
-        .Where(uc => uc.UserId == userId)
-        .Select(uc => uc.ChatId)
-        .ToListAsync();
-    var user = await _db.Users.FindAsync(userId);
+    public async Task<ActionResult<List<ChatDto>>> GetChats([FromQuery] int userId)
+    {
+        var chatIds = await _db.UserChats
+            .Where(uc => uc.UserId == userId)
+            .Select(uc => uc.ChatId)
+            .ToListAsync();
 
-    var chats = await _db.Chats
-        .Where(c => chatIds.Contains(c.Id))
-        .Select(c => new ChatDto(
-            c.Id,
-            c.Name,
-            c.IsGroup,
-            c.AvatarUrl ?? user.AvatarUrl // предполагается, что в сущности Chats есть поле AvatarUrl
-        ))
-        .ToListAsync();
+        var user = await _db.Users.FindAsync(userId);
 
-    return Ok(chats);
-}
+        var chats = await _db.Chats
+            .Where(c => chatIds.Contains(c.Id))
+            .Select(c => new 
+            {
+                c.Id,
+                c.Name,
+                c.IsGroup,
+                // Для группового чата берем аватар группы, если есть, иначе дефолт
+                // Для приватного чата — аватар собеседника (участника, не равного userId)
+                AvatarUrl = c.IsGroup 
+                    ? (c.AvatarUrl ?? "https://localhost:7000/avatars/default_user.png") 
+                    : c.UserChats.Where(uc => uc.UserId != userId).Select(uc => uc.User.AvatarUrl).FirstOrDefault() ?? "https://localhost:7000/avatars/default_user.png"
+            })
+            .ToListAsync();
+
+        var chatDtos = chats.Select(c => new ChatDto(c.Id, c.Name, c.IsGroup, c.AvatarUrl)).ToList();
+
+        return Ok(chatDtos);
+    }
+
 
 
     [HttpPost("createPrivateChat")]

@@ -22,24 +22,24 @@ public class MessagesController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<MessageDto>>> GetMessages([FromQuery] int chatId)
-{
-    var messages = await _db.Messages
-        .Where(m => m.ChatId == chatId)
-        .Include(m => m.Sender) // загружаем пользователя-отправителя
-        .Select(m => new MessageDto(
-            m.Id,
-            m.ChatId,
-            m.SenderId,
-            m.Sender.AvatarUrl ?? string.Empty, // получаем аватар из пользователя
-            m.Text,
-            m.SentAt,
-            m.IsRead,
-            m.Sender.Username ?? string.Empty // получаем имя из пользователя
-            ))
-        .ToListAsync();
+    {
+        var messages = await _db.Messages
+            .Where(m => m.ChatId == chatId)
+            .Include(m => m.Sender) // загружаем пользователя-отправителя
+            .Select(m => new MessageDto(
+                m.Id,
+                m.ChatId,
+                m.SenderId,
+                m.Sender.AvatarUrl ?? string.Empty, // получаем аватар из пользователя
+                m.Text,
+                m.SentAt,
+                m.IsRead,
+                m.Sender.Username ?? string.Empty // получаем имя из пользователя
+                ))
+            .ToListAsync();
 
-    return Ok(messages);
-}
+        return Ok(messages);
+    }
 
 
     [HttpPost]
@@ -60,5 +60,22 @@ public class MessagesController : ControllerBase
             .SendAsync("ReceiveMessage", request.ChatId, request.SenderId, request.Text);
 
         return Ok(new { message = "Сообщение отправлено" });
+    }
+     [HttpDelete("chat/{chatId}")]
+    public async Task<IActionResult> DeleteAllMessagesInChat(int chatId)
+    {
+        var messages = await _db.Messages.Where(m => m.ChatId == chatId).ToListAsync();
+        if (messages.Count == 0)
+        {
+            return NotFound(new { error = "Сообщения в чате не найдены" });
+        }
+
+        _db.Messages.RemoveRange(messages);
+        await _db.SaveChangesAsync();
+        // Уведомляем клиентов чата, что все сообщения удалены
+        await _hubContext.Clients.Group(chatId.ToString())
+            .SendAsync("AllMessagesDeleted");
+
+        return Ok(new { message = "Все сообщения в чате удалены" });
     }
 }
