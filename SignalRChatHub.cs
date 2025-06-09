@@ -14,6 +14,7 @@ namespace Case2
         {
             _db = db;
         }
+
         public override async Task OnConnectedAsync()
         {
             var userIdClaim = Context.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
@@ -25,73 +26,91 @@ namespace Case2
             await base.OnConnectedAsync();
         }
 
-        public async Task CreatePrivateChat(int userId1, int userId2, string chatName)
-    {
-        using (var transaction = await _db.Database.BeginTransactionAsync())
+        // Метод для обновления статуса конкретного пользователя у его собеседников
+        public async Task UpdateUserOnlineStatus(int userId, bool isOnline)
         {
-            try
+            var chatIds = await _db.UserChats.Where(uc => uc.UserId == userId).Select(uc => uc.ChatId).ToListAsync();
+            var otherUserIds = await _db.UserChats
+                .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != userId)
+                .Select(uc => uc.UserId)
+                .Distinct()
+                .ToListAsync();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            user.IsOnline = isOnline;
+
+            foreach (var otherUserId in otherUserIds)
             {
-                var user1 = await _db.Users.FindAsync(userId1);
-                var user2 = await _db.Users.FindAsync(userId2);
-
-                if (user1 == null || user2 == null)
-                {
-                    throw new HubException("One or both users do not exist.");
-                }
-
-                var existingChat = await _db.Chats
-                    .Where(c => !c.IsGroup)
-                    .Where(c => c.UserChats.Any(uc => uc.UserId == userId1))
-                    .Where(c => c.UserChats.Any(uc => uc.UserId == userId2))
-                    .FirstOrDefaultAsync();
-
-                if (existingChat != null)
-                {
-                    throw new HubException("Chat between these users already exists.");
-                }
-
-                var chat = new Chat
-                {
-                    Name = chatName,
-                    IsGroup = false,
-                };
-
-                _db.Chats.Add(chat);
-                await _db.SaveChangesAsync();
-
-                var userChat1 = new UserChat { UserId = userId1, ChatId = chat.Id };
-                var userChat2 = new UserChat { UserId = userId2, ChatId = chat.Id };
-
-                _db.UserChats.AddRange(userChat1, userChat2);
-                await _db.SaveChangesAsync();
-
-                await transaction.CommitAsync();
-
-                // Добавляем подключения пользователей в группу SignalR
-                var userGroupName1 = $"User_{userId1}";
-                var userGroupName2 = $"User_{userId2}";
-
-                // Предполагается, что в Hub при подключении пользователей вы добавляете их в группы User_{userId}
-                // Теперь отправляем сообщение о создании нового чата этим пользователям
-                await Clients.Groups(userGroupName1, userGroupName2)
-                    .SendAsync("NewChatCreated", new
-                    {
-                        ChatId = chat.Id,
-                        Name = chat.Name,
-                        IsGroup = chat.IsGroup,
-                        AvatarUrl = user2.AvatarUrl ?? string.Empty
-                    });
-
-                // Опционально: можно отправить первое системное сообщение или другую информацию
-
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw;
+                await Clients.User(otherUserId.ToString()).SendAsync("ReceiveUserOnlineStatus", userId, isOnline);
             }
         }
-    }
+
+        public async Task CreatePrivateChat(int userId1, int userId2, string Username, string chatName)
+        {
+            using (var transaction = await _db.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    var user1 = await _db.Users.FindAsync(userId1);
+                    var user2 = await _db.Users.FindAsync(userId2);
+
+                    if (user1 == null || user2 == null)
+                    {
+                        throw new HubException("One or both users do not exist.");
+                    }
+
+                    var existingChat = await _db.Chats
+                        .Where(c => !c.IsGroup)
+                        .Where(c => c.UserChats.Any(uc => uc.UserId == userId1))
+                        .Where(c => c.UserChats.Any(uc => uc.UserId == userId2))
+                        .FirstOrDefaultAsync();
+
+                    if (existingChat != null)
+                    {
+                        throw new HubException("Chat between these users already exists.");
+                    }
+
+                    var chat = new Chat
+                    {
+                        Name = chatName,
+                        IsGroup = false,
+                    };
+
+                    _db.Chats.Add(chat);
+                    await _db.SaveChangesAsync();
+
+                    var userChat1 = new UserChat { UserId = userId1, ChatId = chat.Id };
+                    var userChat2 = new UserChat { UserId = userId2, ChatId = chat.Id };
+
+                    _db.UserChats.AddRange(userChat1, userChat2);
+                    await _db.SaveChangesAsync();
+
+                    await transaction.CommitAsync();
+
+                    // Добавляем подключения пользователей в группу SignalR
+                    var userGroupName1 = $"User_{userId1}";
+                    var userGroupName2 = $"User_{userId2}";
+
+                    // Предполагается, что в Hub при подключении пользователей вы добавляете их в группы User_{userId}
+                    // Теперь отправляем сообщение о создании нового чата этим пользователям
+                    await Clients.Groups(userGroupName1, userGroupName2)
+                        .SendAsync("NewChatCreated", new
+                        {
+                            ChatId = chat.Id,
+                            Name = chat.Name,
+                            IsGroup = chat.IsGroup,
+                            AvatarUrl = user2.AvatarUrl ?? string.Empty
+                        });
+
+                    // Опционально: можно отправить первое системное сообщение или другую информацию
+
+                }
+                catch (Exception)
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+        }
 
         public async Task<List<MessageDto>> JoinRoom(int chatId)
         {
@@ -171,6 +190,35 @@ namespace Case2
                 throw new HubException($"Ошибка при отправке сообщения: {ex.Message}");
             }
         }
+        public async Task MarkMessageAsRead(int messageId, int chatId)
+        {
+            var message = await _db.Messages.FindAsync(messageId);
+            if (message == null) return;
 
+            if (!message.IsRead)
+            {
+                message.IsRead = true;
+                await _db.SaveChangesAsync();
+
+                // Уведомляем всех участников чата, что сообщение прочитано
+                await Clients.Group(chatId.ToString()).SendAsync("MessageRead", messageId);
+            }
+        }
+
+        // public async Task MarkMessageAsDelivered(int messageId)
+        // {
+        //     var message = await _db.Messages.FindAsync(messageId);
+        //     if (message == null) return;
+
+        //     if (!message.IsDelivered)
+        //     {
+        //         message.IsDelivered = true;
+        //         await _db.SaveChangesAsync();
+
+        //         // Уведомляем отправителя, что сообщение доставлено
+        //         await Clients.User(message.SenderId.ToString())
+        //             .SendAsync("MessageDelivered", messageId);
+        //     }
+        // }
     }
 }

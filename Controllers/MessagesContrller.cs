@@ -38,6 +38,11 @@ public class MessagesController : ControllerBase
                 ))
             .ToListAsync();
 
+
+        return Ok(messages);
+    }
+
+
         return Ok(messages);
     }
     [HttpPost]
@@ -59,7 +64,9 @@ public class MessagesController : ControllerBase
 
         return Ok(new { message = "Сообщение отправлено" });
     }
-    [HttpDelete("chat/{chatId}")]
+
+     [HttpDelete("chat/{chatId}")]
+
     public async Task<IActionResult> DeleteAllMessagesInChat(int chatId)
     {
         var messages = await _db.Messages.Where(m => m.ChatId == chatId).ToListAsync();
