@@ -42,9 +42,6 @@ public class MessagesController : ControllerBase
         return Ok(messages);
     }
 
-
-        return Ok(messages);
-    }
     [HttpPost]
     public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
     {
