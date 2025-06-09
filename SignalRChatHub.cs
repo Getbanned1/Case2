@@ -29,23 +29,6 @@ namespace Case2
         // Метод для обновления статуса конкретного пользователя у его собеседников
         public async Task UpdateUserOnlineStatus(int userId, bool isOnline)
         {
-            // // Получить список чат-идентификаторов, в которых участвует пользователь
-            // var chatIds = await _db.UserChats
-            //     .Where(uc => uc.UserId == userId)
-            //     .Select(uc => uc.ChatId)
-            //     .ToListAsync();
-
-            // // Получить всех пользователей, которые состоят в тех же чатах, кроме самого пользователя
-            // var otherUserIds = await _db.UserChats
-            //     .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != userId)
-            //     .Select(uc => uc.UserId)
-            //     .Distinct().ToListAsync();
-
-            // // Отправить обновление онлайн-статуса этим пользователям
-            // foreach (var otherUserId in otherUserIds)
-            // {
-            //     await Clients.User(otherUserId.ToString()).SendAsync("ReceiveUserOnlineStatus", userId, isOnline);
-            // }
             var chatIds = await _db.UserChats.Where(uc => uc.UserId == userId).Select(uc => uc.ChatId).ToListAsync();
             var otherUserIds = await _db.UserChats
                 .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != userId)
@@ -175,7 +158,7 @@ namespace Case2
                     ChatId = chatId,
                     SenderId = user.Id,
                     Text = text,
-                    SentAt = DateTime.Now,
+                    SentAt = DateTime.UtcNow.AddHours(3),
                     IsRead = false
                 };
                 _db.Messages.Add(messageEntity);

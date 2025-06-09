@@ -68,7 +68,6 @@ app.UseEndpoints(endpoints =>
 
 app.UseHttpsRedirection();
 app.UseStatusCodePages();
-
 app.UseExceptionHandler("/Error");
 app.UseHsts(); // Включает HSTS для браузеров
 app.Run();
