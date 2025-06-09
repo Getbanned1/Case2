@@ -22,7 +22,7 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
-    public record RegisterRequest(string Username, string Password, IFormFile Avatar);
+    public record RegisterRequest(string Username, string Password, IFormFile? Avatar);
     public record LoginRequest(string Username, string Password);
     public class LogoutRequest
     {
