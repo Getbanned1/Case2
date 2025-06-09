@@ -13,7 +13,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR();      
 builder.Services.AddMemoryCache();
-
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAuthentication(options =>
@@ -69,7 +68,6 @@ app.UseEndpoints(endpoints =>
 
 app.UseHttpsRedirection();
 app.UseStatusCodePages();
-
 app.UseExceptionHandler("/Error");
 app.UseHsts(); // Включает HSTS для браузеров
 app.Run();

@@ -42,7 +42,7 @@ namespace Case2
                 entity.ToTable("chats");
                 entity.HasKey(c => c.Id);
                 entity.Property(c => c.Id).HasColumnName("id");
-                entity.Property(c => c.Name).HasColumnName("name").IsRequired();
+                entity.Property(c => c.Name).HasColumnName("name");
                 entity.Property(c => c.IsGroup).HasColumnName("is_group").IsRequired();
                 entity.Property(c => c.AvatarUrl).HasColumnName("avatar_url");
             });
