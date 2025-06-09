@@ -35,6 +35,8 @@ namespace Case2
                 .Select(uc => uc.UserId)
                 .Distinct()
                 .ToListAsync();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            user.IsOnline = isOnline;
 
             foreach (var otherUserId in otherUserIds)
             {
@@ -158,7 +160,7 @@ namespace Case2
                     ChatId = chatId,
                     SenderId = user.Id,
                     Text = text,
-                    SentAt = DateTime.UtcNow.AddHours(3),
+                    SentAt = DateTime.UtcNow,
                     IsRead = false
                 };
                 _db.Messages.Add(messageEntity);

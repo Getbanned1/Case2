@@ -24,6 +24,10 @@ public class AuthController : ControllerBase
 
     public record RegisterRequest(string Username, string Password, IFormFile Avatar);
     public record LoginRequest(string Username, string Password);
+    public class LogoutRequest
+    {
+        public int UserId { get; set; }
+    }
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromForm] RegisterRequest request)
@@ -65,7 +69,7 @@ public class AuthController : ControllerBase
     }
 
 
-        [HttpPost("login")]
+    [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
@@ -105,6 +109,38 @@ public class AuthController : ControllerBase
             avatarUrl = user.AvatarUrl, 
             isOnline = user.IsOnline 
         });
+    }
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == request.UserId);
+        if (user == null)
+            return NotFound(new { message = "Пользователь не найден." });
+
+        user.IsOnline = false;
+        user.LastOnline = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        // Получаем список собеседников пользователя
+        var chatIds = await _db.UserChats
+            .Where(uc => uc.UserId == user.Id)
+            .Select(uc => uc.ChatId)
+            .ToListAsync();
+
+        var otherUserIds = await _db.UserChats
+            .Where(uc => chatIds.Contains(uc.ChatId) && uc.UserId != user.Id)
+            .Select(uc => uc.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        // Отправляем уведомление собеседникам через SignalR, что пользователь offline
+        foreach (var otherUserId in otherUserIds)
+        {
+            await _hubContext.Clients.User(otherUserId.ToString())
+                .SendAsync("ReceiveUserOnlineStatus", user.Id, false);
+        }
+
+        return Ok(new { message = "Пользователь вышел из системы." });
     }
 
 
